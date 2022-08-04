@@ -17,6 +17,9 @@ dependencies {
 
     compileOnly 'org.projectlombok:lombok:1.18.24'
     annotationProcessor 'org.projectlombok:lombok:1.18.24'
+
+    implementation 'io.projectreactor:reactor-core:3.4.21'
+//    implementation 'org.springframework.boot:spring-boot-starter-webflux:2.7.2'
 }
 
 test {
