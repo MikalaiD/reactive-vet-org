@@ -13,8 +13,6 @@ import reactor.core.publisher.Mono;
 
 import org.springframework.stereotype.Service;
 
-import static java.util.stream.Collectors.toList;
-
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -31,9 +29,9 @@ public class VettingService {
      *
      */
     public Mono<VettingReport> vet(final String name) {
-        List<Mono<VettingResults>> asyncResults = strategyProvider.getStrategies(name).stream().map(s -> s.vet(name)).collect(toList());
         return Flux
-                .merge(asyncResults)
+                .fromIterable(strategyProvider.getStrategies(name))
+                .flatMap(s -> s.vet(name))
                 .collectList()
                 .map(this::resultsCombinator)
                 .doOnSuccess(report -> log.info("<> Vetting report is ready"));
