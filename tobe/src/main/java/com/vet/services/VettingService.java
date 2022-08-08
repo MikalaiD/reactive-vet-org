@@ -1,19 +1,17 @@
 package com.vet.services;
 
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import com.vet.model.VettingReport;
 import com.vet.model.VettingResults;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Scheduler;
-import reactor.core.scheduler.Schedulers;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
@@ -31,19 +29,21 @@ public class VettingService {
      *
      */
     public Mono<VettingReport> vet(final String name) {
-        final List<Mono<VettingResults>> monos = strategyProvider.getStrategies(name).stream().map(s -> s.vet(name)).toList();
-        return Mono.zip(monos, resultsCombinator)
-                .subscribeOn(Schedulers.boundedElastic())
+        return Flux
+                .fromIterable(strategyProvider.getStrategies(name))
+                .flatMap(s -> s.vet(name))
+                .collectList()
+                .map(this::resultsCombinator)
                 .doOnSuccess(report -> log.info("<> Vetting report is ready"));
     }
 
-    private final Function<Object[], VettingReport> resultsCombinator = vettingResults -> {
-        final Map<String, VettingStatus> agenciesVettingResults = Arrays.stream(vettingResults)
-                .map(VettingResults.class::cast)
+    private VettingReport resultsCombinator(List<VettingResults> vettingResults) {
+        final Map<String, VettingStatus> agenciesVettingResults = vettingResults
+                .stream()
                 .collect(Collectors.toMap(VettingResults::getAgency, VettingResults::getSummary));
         final VettingStatus summary = summarize(agenciesVettingResults);
         return VettingReport.builder().sourcingDetails(agenciesVettingResults).summary(summary).build();
-    };
+    }
 
     private VettingStatus summarize(final Map<String, VettingStatus> agenciesVettingResults) {
         return agenciesVettingResults
